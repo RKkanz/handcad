@@ -61,6 +61,13 @@ class Overlay(QWidget):
                 r = 7 if i in (4, 8, 12, 16, 20) else 4.5
                 p.drawEllipse(pt, r, r)
 
+            if s.pinch is not None:
+                # Thumb-index line that brightens as the pinch closes.
+                c = QColor(255, 255, 255) if s.pressed else QColor(color)
+                c.setAlpha(int(60 + 195 * s.pinch))
+                p.setPen(QPen(c, 2 + 4 * s.pinch, Qt.DashLine if not s.pressed else Qt.SolidLine, Qt.RoundCap))
+                p.drawLine(pts[4], pts[8])
+
             if s.pause_progress > 0:
                 p.setPen(QPen(QColor(255, 255, 255, 220), 5, Qt.SolidLine, Qt.RoundCap))
                 p.setBrush(Qt.NoBrush)

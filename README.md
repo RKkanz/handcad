@@ -9,15 +9,21 @@ Navigation follows the **SolidWorks** mouse scheme, which Onshape offers as a pr
 
 | Hand | What it does | Mouse equivalent |
 |---|---|---|
-| ☝️ Point (index finger only) | Move the cursor (the fingertip *is* the cursor) | move |
-| ☝️ + pull your thumb out | Click; keep the thumb out to drag, tuck it back in to release | left button |
+| ☝️ Point (index finger only) | Move the cursor | move |
+| 🤏 Pinch thumb tip to index tip | Click; hold the pinch to drag | left button |
 | 🤲 Cupped hand (as if holding a ball) | Rotate the part | middle drag |
 | 🤟 Three fingers (index, middle, ring) | Pan / move the part | Ctrl + middle drag |
 | ✌️ Two fingers, move up/down | Zoom | scroll wheel |
 | ✋ Open hand | Nothing; reposition freely | — |
 | ✊ Fist held for 1 s | Pause / resume (lets you use your real mouse) | — |
 
-Optional: `--air-tap` also clicks when you make a quick dip of your index finger.
+While pinching, the cursor follows your index knuckle rather than the fingertip,
+because the knuckle stays still when the finger bends, so clicking doesn't move
+the cursor. A dashed line between thumb and index brightens as the pinch closes and
+turns solid when it clicks.
+
+Other click styles: `--click thumb` (point, then pull the thumb out like a finger
+gun), and `--air-tap` (quick dip of the index finger).
 
 ## How it works
 
@@ -52,7 +58,8 @@ Every threshold is in `handcad/config.py`. Run with `--debug`, make each gesture
 and read the numbers at the top left:
 
 - `index/middle/ring/pinky` = finger curl in degrees (straight ≈ 0–40, cupped ≈ 70–150, fist ≈ 200+)
-- `thumb` = thumb distance from the index knuckle; click presses above `thumb_press` and releases below `thumb_release`
+- `pinch` = thumb tip to index tip distance; click presses below `pinch_press` and releases above `pinch_release`
+- `thumb` = (with `--click thumb`) thumb distance from the index knuckle; click presses above `thumb_press` and releases below `thumb_release`
 - `raw` = the gesture detected in this frame, before debouncing
 
 `active_x` / `active_y` sets the part of the camera image that maps to the whole

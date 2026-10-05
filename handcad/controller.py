@@ -34,6 +34,7 @@ class ViewState:
     label: str = ""
     cursor: tuple[float, float] | None = None
     pressed: bool = False
+    pinch: float | None = None  # 0 = fingers apart .. 1 = pinch closed, in pinch-click cursor mode
     paused: bool = False
     pause_progress: float = 0.0
     fps: float = 0.0
@@ -53,7 +54,7 @@ class Controller:
         self.zoom_accum = 0.0
         self.left_down = False
         self.freeze_until = 0.0
-        self.last_thumb = None
+        self.last_click_signal = None
         self.last_t = None
         self.paused = False
         self.fist_since = None
@@ -100,13 +101,16 @@ class Controller:
             self._enter(g.NONE, None)
         self.debounce.reset()
         self.fist_since = None
-        self.last_thumb = None
+        self.last_click_signal = None
         self.tap_start = None
 
     def update(self, image_pts: np.ndarray, world_pts: np.ndarray, t: float) -> ViewState:
         cfg = self.cfg
         feats = g.features(world_pts, cfg)
-        gesture = self.debounce(feats.gesture)
+        raw = feats.gesture
+        if raw == g.NONE and self.mode == g.POINT:
+            raw = g.POINT  # stay in cursor mode through in-between hand shapes
+        gesture = self.debounce(raw)
         pts = [self.to_screen(x, y) for x, y in image_pts[:, :2]]
         palm = self.palm_filter(tuple(np.mean([pts[i] for i in PALM], axis=0)), t)
         dt = (t - self.last_t) if self.last_t else 1 / 30
@@ -131,7 +135,6 @@ class Controller:
                     self.mouse.scroll(notches)
                 self.zoom_accum -= notches
         self.last_palm = palm
-        self.last_thumb = feats.thumb_ratio
 
         return ViewState(
             points=pts,
@@ -139,12 +142,14 @@ class Controller:
             label="paused" if self.paused else MODE_LABELS[self.mode],
             cursor=self.cursor if self.mode in (g.POINT, g.CUP, g.THREE) else None,
             pressed=self.left_down or self.mode in (g.CUP, g.THREE),
+            pinch=self._pinch_closeness(feats) if self.mode == g.POINT and cfg.click == "pinch" else None,
             paused=self.paused,
             pause_progress=pause_progress,
             debug={
                 **{k: round(v) for k, v in feats.curl.items()},
                 "raw": feats.gesture,
                 "thumb": round(feats.thumb_ratio, 2),
+                "pinch": round(feats.pinch_ratio, 2),
                 "bend": round(feats.index_bend),
             }
             if cfg.debug
@@ -168,26 +173,40 @@ class Controller:
             return 0.0
         return progress
 
+    def _pinch_closeness(self, feats: g.HandFeatures) -> float:
+        cfg = self.cfg
+        open_ratio = cfg.pinch_release * 2
+        return min(max((open_ratio - feats.pinch_ratio) / (open_ratio - cfg.pinch_press), 0.0), 1.0)
+
     def _point(self, pts, feats: g.HandFeatures, t: float, dt: float):
         cfg = self.cfg
-        # Thumb out = press, thumb back in = release (so you can also drag).
-        thumb_speed = abs(feats.thumb_ratio - self.last_thumb) / dt if self.last_thumb is not None else 0.0
-        if not self.left_down and feats.thumb_ratio > cfg.thumb_press:
+        # Press when the click gesture closes, release when it opens (so holding it drags).
+        # Signals are oriented so that bigger = more "pressed".
+        if cfg.click == "pinch":
+            signal, press, release = -feats.pinch_ratio, -cfg.pinch_press, -cfg.pinch_release
+            freeze_speed, anchor = cfg.pinch_freeze_speed, g.INDEX_MCP
+        else:
+            signal, press, release = feats.thumb_ratio, cfg.thumb_press, cfg.thumb_release
+            freeze_speed, anchor = cfg.thumb_freeze_speed, g.INDEX_TIP
+        speed = abs(signal - self.last_click_signal) / dt if self.last_click_signal is not None else 0.0
+        self.last_click_signal = signal
+
+        if not self.left_down and signal > press:
             self.left_down = True
             if self.mouse:
                 self.mouse.press(e.BTN_LEFT)
             self.freeze_until = t + cfg.click_freeze_s
-        elif self.left_down and feats.thumb_ratio < cfg.thumb_release:
+        elif self.left_down and signal < release:
             self.left_down = False
             if self.mouse:
                 self.mouse.release(e.BTN_LEFT)
             self.freeze_until = t + cfg.click_freeze_s
-        frozen = t < self.freeze_until or thumb_speed > cfg.thumb_freeze_speed
+        frozen = t < self.freeze_until or speed > freeze_speed
 
         if cfg.air_tap:
             frozen |= self._air_tap(feats.index_bend, t)
 
-        target = self.cursor_filter(pts[g.INDEX_TIP], t)
+        target = self.cursor_filter(pts[anchor], t)
         if not frozen:
             self._move(*target)
 

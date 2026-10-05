@@ -20,12 +20,14 @@ def main():
     ap = argparse.ArgumentParser(description="Hand-tracking mouse + CAD navigation.")
     ap.add_argument("--camera", type=int, default=0)
     ap.add_argument("--debug", action="store_true", help="show finger curl / thumb values for tuning")
+    ap.add_argument("--click", choices=["pinch", "thumb"], default="pinch",
+                    help="pinch: thumb tip to index tip (default); thumb: point and pull the thumb out")
     ap.add_argument("--air-tap", action="store_true", help="also click by tapping the index finger in the air")
     ap.add_argument("--dry-run", action="store_true", help="track and draw, but don't touch the mouse")
     ap.add_argument("--invert-zoom", action="store_true")
     args = ap.parse_args()
 
-    cfg = Config(camera=args.camera, debug=args.debug, air_tap=args.air_tap, zoom_invert=args.invert_zoom)
+    cfg = Config(camera=args.camera, debug=args.debug, click=args.click, air_tap=args.air_tap, zoom_invert=args.invert_zoom)
 
     mouse = None
     if not args.dry_run:

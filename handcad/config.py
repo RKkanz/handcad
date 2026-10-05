@@ -21,6 +21,16 @@ class Config:
     cup_min: float = 55.0        # cupped hand: every finger bent between these
     cup_max: float = 175.0
 
+    # How to click while in cursor mode:
+    #   "pinch": touch thumb tip to index tip (cursor follows the index knuckle, which stays still)
+    #   "thumb": point and pull the thumb out (cursor follows the index tip)
+    click: str = "pinch"
+
+    # Pinch = thumb tip to index tip distance / palm size.
+    pinch_press: float = 0.25
+    pinch_release: float = 0.40
+    pinch_freeze_speed: float = 2.0   # ratio units per second
+
     # Thumb "pulled out" = thumb tip distance from index knuckle / palm size.
     thumb_press: float = 0.85
     thumb_release: float = 0.65
