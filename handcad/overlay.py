@@ -2,7 +2,7 @@
 
 import time
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -40,7 +40,8 @@ class Overlay(QWidget):
         self.ripples: list[tuple[QPointF, str, float]] = []  # (pos, button, start time)
         # Frames arrive at camera rate (~20 fps); repaint faster while a ripple animates.
         self.anim = QTimer(self)
-        self.anim.timeout.connect(self.update)
+        self.anim.timeout.connect(self._animate)
+        self.last_dirty = QRect()
 
     def show_on_screen(self, screen):
         self.setGeometry(screen.geometry())
@@ -53,7 +54,37 @@ class Overlay(QWidget):
             now = time.monotonic()
             self.ripples += [(pos, b, now) for b in state.clicks]
             self.anim.start(16)
-        self.update()
+        # Repaint only around the hand (this frame and last), not the whole screen:
+        # less painting here and less compositing for GNOME.
+        dirty = self._dirty_rect(state)
+        self.update(dirty.united(self.last_dirty))
+        self.last_dirty = dirty
+
+    def _ripple_rects(self) -> QRect:
+        r = QRect()
+        for pos, _, _ in self.ripples:
+            # ring grows to ~72 px; the label sits up and to the right
+            r = r.united(QRect(int(pos.x()) - 80, int(pos.y()) - 95, 280, 175))
+        return r
+
+    def _dirty_rect(self, s: ViewState) -> QRect:
+        w, h = self.width(), self.height()
+        r = self._ripple_rects()
+        if s.points:
+            xs = [x * w for x, _ in s.points]
+            ys = [y * h for _, y in s.points]
+            # margin covers joint dots, the pause arc, and the mode label under the wrist
+            r = r.united(QRect(int(min(xs)) - 90, int(min(ys)) - 50, int(max(xs) - min(xs)) + 230, int(max(ys) - min(ys)) + 110))
+        if s.cursor:
+            r = r.united(QRect(int(s.cursor[0] * w) - 40, int(s.cursor[1] * h) - 40, 80, 80))
+        if s.paused:
+            r = r.united(QRect(0, h - 50, 520, 50))
+        if s.debug:
+            r = r.united(QRect(0, 0, w, 45))
+        return r
+
+    def _animate(self):
+        self.update(self._ripple_rects())
 
     def paintEvent(self, _):
         s = self.state

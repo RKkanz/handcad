@@ -3,6 +3,11 @@ import os
 import signal
 import sys
 
+import cv2
+
+# OpenCV only converts one frame at a time here; its thread pool just adds overhead.
+cv2.setNumThreads(1)
+
 # The overlay runs through XWayland: GNOME's Wayland session ignores "always on top"
 # for native Wayland clients, but honours it (and click-through) for X11 windows.
 os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
@@ -25,11 +30,14 @@ def main():
     ap.add_argument("--air-tap", action="store_true", help="also click by tapping the index finger in the air")
     ap.add_argument("--dry-run", action="store_true", help="track and draw, but don't touch the mouse")
     ap.add_argument("--invert-zoom", action="store_true")
+    ap.add_argument("--fps", type=float, help="max tracking rate (default 15); lower = less CPU, laggier cursor")
     ap.add_argument("--calibrate", action="store_true", help="measure your pinches and save click thresholds")
     args = ap.parse_args()
 
     cfg = Config().load_user()
     cfg.camera, cfg.debug, cfg.click = args.camera, args.debug, args.click
+    if args.fps:
+        cfg.max_fps = args.fps
     cfg.air_tap = args.air_tap or cfg.air_tap
     cfg.zoom_invert = args.invert_zoom or cfg.zoom_invert
 

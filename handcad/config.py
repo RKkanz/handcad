@@ -11,6 +11,11 @@ class Config:
     cam_width: int = 1280
     cam_height: int = 720
 
+    # Hand tracking costs ~40 ms of CPU per frame, so these set most of the CPU load.
+    max_fps: float = 15.0     # while tracking a hand
+    paused_fps: float = 8.0   # paused: only watching for the fist that resumes
+    idle_fps: float = 4.0     # no hand in view
+
     # Part of the (mirrored) camera image that maps onto the whole screen.
     # Smaller box = less arm movement needed to reach the screen edges.
     active_x: tuple[float, float] = (0.15, 0.85)

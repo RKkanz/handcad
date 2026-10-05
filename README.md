@@ -65,9 +65,17 @@ uv venv -p 3.12 && uv pip install -e .
 .venv/bin/handcad               # Ctrl+C in the terminal to quit
 ```
 
-Flags: `--debug` (shows finger curl / thumb values for tuning), `--dry-run`
+Flags: `--fps N` (max tracking rate, default 15; lower it on a slow laptop), `--debug` (shows finger curl / thumb values for tuning), `--dry-run`
 (draws the skeleton without touching the mouse), `--air-tap`, `--invert-zoom`,
 `--camera N`.
+
+## Performance
+
+Hand tracking costs about 30–45 ms of CPU per frame (MediaPipe's pip build has no
+GPU path on Linux), so handcad limits how often it runs: 15 fps while tracking,
+8 fps while paused, 4 fps with no hand in view. On a dual-core i5 that's roughly
+45% of one core while tracking and 25% idle. Frames it skips are never decoded,
+and the overlay only repaints the area around your hand.
 
 ## Tuning
 
