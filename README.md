@@ -33,8 +33,10 @@ Navigation follows the **SolidWorks** mouse scheme, which Onshape offers as a pr
 
 While pinching, the cursor follows your index knuckle rather than the fingertip,
 because the knuckle stays still when the finger bends, so clicking doesn't move
-the cursor. A dashed line between thumb and index brightens as the pinch closes and
-turns solid when it clicks.
+the cursor. A ring around the cursor fills as you pinch (blue = left, orange = right)
+and a ripple with "click" / "right click" shows each click.
+
+Run `handcad --calibrate` once so clicks trigger at the right point for your hand.
 
 Other click styles: `--click thumb` (point, then pull the thumb out like a finger
 gun), and `--air-tap` (quick dip of the index finger).
@@ -59,7 +61,8 @@ gun), and `--air-tap` (quick dip of the index finger).
 git clone https://github.com/RKkanz/handcad && cd handcad
 ./scripts/setup.sh          # one time: uinput permission + libxcb-cursor0
 uv venv -p 3.12 && uv pip install -e .
-.venv/bin/handcad           # Ctrl+C in the terminal to quit
+.venv/bin/handcad --calibrate   # ~10 s: fits the pinch-click thresholds to your hand
+.venv/bin/handcad               # Ctrl+C in the terminal to quit
 ```
 
 Flags: `--debug` (shows finger curl / thumb values for tuning), `--dry-run`
@@ -68,7 +71,8 @@ Flags: `--debug` (shows finger curl / thumb values for tuning), `--dry-run`
 
 ## Tuning
 
-Every threshold is in `handcad/config.py`. Run with `--debug`, make each gesture,
+Every threshold is in `handcad/config.py`; values saved by `--calibrate` (or added
+by hand) in `~/.config/handcad/config.json` override them. Run with `--debug`, make each gesture,
 and read the numbers at the top left:
 
 - `index/middle/ring/pinky` = finger curl in degrees (straight ≈ 0–40, cupped ≈ 70–150, fist ≈ 200+)

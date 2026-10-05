@@ -69,7 +69,7 @@ def features(world: np.ndarray, cfg: Config) -> HandFeatures:
     )
     f.gesture = classify(f.curl, cfg)
     pinched = f.pinch_ratio < cfg.pinch_release and cfg.click == "pinch"
-    if f.gesture in (NONE, CUP) and (pinched or f.middle_pinch_ratio < cfg.pinch_release):
+    if f.gesture in (NONE, CUP) and (pinched or f.middle_pinch_ratio < cfg.rpinch_release):
         # Pinching bends fingers out of the "point" shape (and a relaxed pinching hand can
         # look cupped); thumb touching the index or middle tip means cursor mode.
         f.gesture = POINT

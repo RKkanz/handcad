@@ -36,6 +36,7 @@ class ViewState:
     pressed: bool = False
     pinch: float | None = None  # 0 = fingers apart .. 1 = pinch closed, in cursor mode
     pinch_finger: int = 8       # landmark the thumb is pinching toward (8 index, 12 middle)
+    clicks: list = field(default_factory=list)  # buttons ("left"/"right") pressed this frame
     paused: bool = False
     pause_progress: float = 0.0
     fps: float = 0.0
@@ -55,6 +56,7 @@ class Controller:
         self.zoom_accum = 0.0
         self.left_down = False
         self.right_down = False
+        self.clicks: list[str] = []
         self.freeze_until = 0.0
         self.last_click_signal = None
         self.last_t = None
@@ -147,6 +149,7 @@ class Controller:
             pressed=self.left_down or self.right_down or self.mode in (g.CUP, g.THREE),
             pinch=self._pinch_closeness(feats) if self.mode == g.POINT else None,
             pinch_finger=self._pinch_finger(feats),
+            clicks=self._take_clicks(),
             paused=self.paused,
             pause_progress=pause_progress,
             debug={
@@ -186,11 +189,18 @@ class Controller:
             return g.INDEX_TIP
         return g.MIDDLE_TIP if feats.middle_pinch_ratio < feats.pinch_ratio else g.INDEX_TIP
 
+    def _take_clicks(self) -> list[str]:
+        clicks, self.clicks = self.clicks, []
+        return clicks
+
     def _pinch_closeness(self, feats: g.HandFeatures) -> float:
+        """0 = relaxed hand .. 1 = at the click threshold."""
         cfg = self.cfg
-        ratio = feats.middle_pinch_ratio if self._pinch_finger(feats) == g.MIDDLE_TIP else feats.pinch_ratio
-        open_ratio = cfg.pinch_release * 2
-        return min(max((open_ratio - ratio) / (open_ratio - cfg.pinch_press), 0.0), 1.0)
+        if self._pinch_finger(feats) == g.MIDDLE_TIP:
+            ratio, press, open_ratio = feats.middle_pinch_ratio, cfg.rpinch_press, cfg.rpinch_open
+        else:
+            ratio, press, open_ratio = feats.pinch_ratio, cfg.pinch_press, cfg.pinch_open
+        return min(max((open_ratio - ratio) / max(open_ratio - press, 1e-3), 0.0), 1.0)
 
     def _point(self, pts, feats: g.HandFeatures, t: float, dt: float):
         cfg = self.cfg
@@ -211,12 +221,13 @@ class Controller:
         self.last_click_signal = (signal, right)
 
         # Right click: thumb to middle fingertip. Whichever fingertip the thumb is closer to wins.
-        if not self.right_down and not self.left_down and right < cfg.pinch_press and right < feats.pinch_ratio:
+        if not self.right_down and not self.left_down and right < cfg.rpinch_press and right < feats.pinch_ratio:
             self.right_down = True
+            self.clicks.append("right")
             if self.mouse:
                 self.mouse.press(e.BTN_RIGHT)
             self.freeze_until = t + cfg.click_freeze_s
-        elif self.right_down and right > cfg.pinch_release:
+        elif self.right_down and right > cfg.rpinch_release:
             self.right_down = False
             if self.mouse:
                 self.mouse.release(e.BTN_RIGHT)
@@ -226,6 +237,7 @@ class Controller:
             cfg.click == "thumb" or feats.pinch_ratio <= right
         ):
             self.left_down = True
+            self.clicks.append("left")
             if self.mouse:
                 self.mouse.press(e.BTN_LEFT)
             self.freeze_until = t + cfg.click_freeze_s

@@ -25,9 +25,19 @@ def main():
     ap.add_argument("--air-tap", action="store_true", help="also click by tapping the index finger in the air")
     ap.add_argument("--dry-run", action="store_true", help="track and draw, but don't touch the mouse")
     ap.add_argument("--invert-zoom", action="store_true")
+    ap.add_argument("--calibrate", action="store_true", help="measure your pinches and save click thresholds")
     args = ap.parse_args()
 
-    cfg = Config(camera=args.camera, debug=args.debug, click=args.click, air_tap=args.air_tap, zoom_invert=args.invert_zoom)
+    cfg = Config().load_user()
+    cfg.camera, cfg.debug, cfg.click = args.camera, args.debug, args.click
+    cfg.air_tap = args.air_tap or cfg.air_tap
+    cfg.zoom_invert = args.invert_zoom or cfg.zoom_invert
+
+    if args.calibrate:
+        from .calibrate import run
+
+        run(cfg)
+        return
 
     mouse = None
     if not args.dry_run:

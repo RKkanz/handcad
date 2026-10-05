@@ -1,4 +1,8 @@
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, fields
+from pathlib import Path
+
+USER_CONFIG = Path.home() / ".config" / "handcad" / "config.json"
 
 
 @dataclass
@@ -26,9 +30,14 @@ class Config:
     #   "thumb": point and pull the thumb out (cursor follows the index tip)
     click: str = "pinch"
 
-    # Pinch = thumb tip to index tip distance / palm size.
-    pinch_press: float = 0.25
-    pinch_release: float = 0.40
+    # Pinch = thumb tip to fingertip distance / palm size. `--calibrate` fits these to your hand.
+    # *_open is the distance with the hand relaxed; it only drives the overlay's progress ring.
+    pinch_press: float = 0.30      # thumb to index tip -> left click
+    pinch_release: float = 0.45
+    pinch_open: float = 0.80
+    rpinch_press: float = 0.30     # thumb to middle tip -> right click
+    rpinch_release: float = 0.45
+    rpinch_open: float = 0.80
     pinch_freeze_speed: float = 2.0   # ratio units per second
 
     # Thumb "pulled out" = thumb tip distance from index knuckle / palm size.
@@ -55,3 +64,19 @@ class Config:
     filter_beta: float = 8.0
 
     debug: bool = False
+
+    def load_user(self) -> "Config":
+        """Apply saved overrides (e.g. from --calibrate) from ~/.config/handcad/config.json."""
+        if USER_CONFIG.exists():
+            known = {f.name for f in fields(self)}
+            for k, v in json.loads(USER_CONFIG.read_text()).items():
+                if k in known:
+                    setattr(self, k, v)
+        return self
+
+
+def save_user(values: dict):
+    data = json.loads(USER_CONFIG.read_text()) if USER_CONFIG.exists() else {}
+    data.update(values)
+    USER_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    USER_CONFIG.write_text(json.dumps(data, indent=2) + "\n")
