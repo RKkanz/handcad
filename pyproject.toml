@@ -1,0 +1,20 @@
+[project]
+name = "handcad"
+version = "0.1.0"
+description = "Control your mouse and CAD (Onshape, SolidWorks-style navigation) with your hand and a webcam."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "mediapipe>=0.10.14",
+    "opencv-python>=4.8",
+    "numpy",
+    "PySide6>=6.6",
+    "evdev>=1.7",
+]
+
+[project.scripts]
+handcad = "handcad.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
