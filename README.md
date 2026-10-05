@@ -1,8 +1,21 @@
 # handcad
 
-Control your mouse and CAD navigation with one hand and a webcam. A transparent,
-click-through overlay draws only the skeleton of your hand on top of the desktop,
-so you can see everything behind it.
+**Webcam-only gesture navigation for CAD. Works on Wayland.**
+
+Rotate, pan and zoom your model in Onshape by moving your hand in front of a laptop
+camera. No Leap Motion, no SpaceMouse, no plugin. A transparent, click-through
+overlay draws only the skeleton of your hand on top of the desktop, so you can see
+your model through it.
+
+- **CAD navigation, not just a cursor.** Hand shapes press the real SolidWorks-style
+  mouse shortcuts, so it works in Onshape (and any app with that preset) without
+  an add-in.
+- **Works on Wayland.** Most webcam-mouse projects use PyAutoGUI, which can't move
+  the cursor on Wayland (the default on current Ubuntu and Fedora). handcad
+  creates a kernel-level virtual mouse instead, so it works on Wayland and X11.
+- **See-through skeleton overlay** instead of a camera window. The drawn hand
+  lines up with the cursor on screen.
+- **Just a webcam.** Hand tracking runs locally on the CPU with MediaPipe.
 
 Navigation follows the **SolidWorks** mouse scheme, which Onshape offers as a preset
 (*My account → Preferences → Mouse controls → SolidWorks*):
@@ -32,8 +45,8 @@ gun), and `--air-tap` (quick dip of the index finger).
 - Gestures come from joint angles on MediaPipe's 3D "world" landmarks, so they
   don't depend on how far the hand is from the camera. A gesture must hold for 3
   frames before it takes effect, so passing through shapes doesn't trigger anything.
-- The cursor is smoothed with a One Euro filter and freezes briefly while your
-  thumb clicks, so clicking doesn't knock the cursor off target.
+- The cursor is smoothed with a One Euro filter and freezes briefly while you
+  pinch, so clicking doesn't knock the cursor off target.
 - Mouse events go through **`/dev/uinput`** as a virtual absolute pointer, which
   works on Wayland. Rotate/pan press the middle button (and Ctrl) on the
   virtual devices, then move the cursor with your palm.
