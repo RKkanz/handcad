@@ -9,7 +9,7 @@ from .config import Config
 WRIST = 0
 THUMB_TIP = 4
 INDEX_MCP, INDEX_PIP, INDEX_TIP = 5, 6, 8
-MIDDLE_MCP = 9
+MIDDLE_MCP, MIDDLE_TIP = 9, 12
 PINKY_MCP = 17
 
 # (mcp, pip, dip, tip) per finger
@@ -47,7 +47,8 @@ def _angle(a: np.ndarray, b: np.ndarray) -> float:
 class HandFeatures:
     curl: dict[str, float] = field(default_factory=dict)  # degrees per finger
     thumb_ratio: float = 0.0
-    pinch_ratio: float = 0.0
+    pinch_ratio: float = 0.0         # thumb tip to index tip
+    middle_pinch_ratio: float = 0.0  # thumb tip to middle tip
     index_bend: float = 0.0  # bend at index MCP+PIP, for air taps
     gesture: str = NONE
 
@@ -61,14 +62,16 @@ def features(world: np.ndarray, cfg: Config) -> HandFeatures:
     palm = np.linalg.norm(world[MIDDLE_MCP] - world[WRIST]) + 1e-9
     f.thumb_ratio = float(np.linalg.norm(world[THUMB_TIP] - world[INDEX_MCP]) / palm)
     f.pinch_ratio = float(np.linalg.norm(world[THUMB_TIP] - world[INDEX_TIP]) / palm)
+    f.middle_pinch_ratio = float(np.linalg.norm(world[THUMB_TIP] - world[MIDDLE_TIP]) / palm)
     i = FINGERS["index"]
     f.index_bend = _angle(world[i[0]] - world[WRIST], world[i[1]] - world[i[0]]) + _angle(
         world[i[1]] - world[i[0]], world[i[2]] - world[i[1]]
     )
     f.gesture = classify(f.curl, cfg)
-    if cfg.click == "pinch" and f.gesture in (NONE, CUP) and f.pinch_ratio < cfg.pinch_release:
-        # Pinching bends the index finger out of the "point" shape (and a relaxed pinching
-        # hand can look cupped); thumb touching index tip means cursor mode.
+    pinched = f.pinch_ratio < cfg.pinch_release and cfg.click == "pinch"
+    if f.gesture in (NONE, CUP) and (pinched or f.middle_pinch_ratio < cfg.pinch_release):
+        # Pinching bends fingers out of the "point" shape (and a relaxed pinching hand can
+        # look cupped); thumb touching the index or middle tip means cursor mode.
         f.gesture = POINT
     return f
 

@@ -34,7 +34,8 @@ class ViewState:
     label: str = ""
     cursor: tuple[float, float] | None = None
     pressed: bool = False
-    pinch: float | None = None  # 0 = fingers apart .. 1 = pinch closed, in pinch-click cursor mode
+    pinch: float | None = None  # 0 = fingers apart .. 1 = pinch closed, in cursor mode
+    pinch_finger: int = 8       # landmark the thumb is pinching toward (8 index, 12 middle)
     paused: bool = False
     pause_progress: float = 0.0
     fps: float = 0.0
@@ -53,6 +54,7 @@ class Controller:
         self.last_palm = None
         self.zoom_accum = 0.0
         self.left_down = False
+        self.right_down = False
         self.freeze_until = 0.0
         self.last_click_signal = None
         self.last_t = None
@@ -72,6 +74,7 @@ class Controller:
         if self.mouse:
             self.mouse.release_all()
         self.left_down = False
+        self.right_down = False
 
     def _enter(self, mode: str, palm):
         """Leave the current mode cleanly, then start the new one."""
@@ -141,8 +144,9 @@ class Controller:
             gesture=self.mode,
             label="paused" if self.paused else MODE_LABELS[self.mode],
             cursor=self.cursor if self.mode in (g.POINT, g.CUP, g.THREE) else None,
-            pressed=self.left_down or self.mode in (g.CUP, g.THREE),
-            pinch=self._pinch_closeness(feats) if self.mode == g.POINT and cfg.click == "pinch" else None,
+            pressed=self.left_down or self.right_down or self.mode in (g.CUP, g.THREE),
+            pinch=self._pinch_closeness(feats) if self.mode == g.POINT else None,
+            pinch_finger=self._pinch_finger(feats),
             paused=self.paused,
             pause_progress=pause_progress,
             debug={
@@ -150,6 +154,7 @@ class Controller:
                 "raw": feats.gesture,
                 "thumb": round(feats.thumb_ratio, 2),
                 "pinch": round(feats.pinch_ratio, 2),
+                "rpinch": round(feats.middle_pinch_ratio, 2),
                 "bend": round(feats.index_bend),
             }
             if cfg.debug
@@ -173,10 +178,19 @@ class Controller:
             return 0.0
         return progress
 
+    def _pinch_finger(self, feats: g.HandFeatures) -> int:
+        """Which fingertip the thumb is going for. Thumb-out clicking has no index pinch."""
+        if self.right_down or self.cfg.click == "thumb":
+            return g.MIDDLE_TIP
+        if self.left_down:
+            return g.INDEX_TIP
+        return g.MIDDLE_TIP if feats.middle_pinch_ratio < feats.pinch_ratio else g.INDEX_TIP
+
     def _pinch_closeness(self, feats: g.HandFeatures) -> float:
         cfg = self.cfg
+        ratio = feats.middle_pinch_ratio if self._pinch_finger(feats) == g.MIDDLE_TIP else feats.pinch_ratio
         open_ratio = cfg.pinch_release * 2
-        return min(max((open_ratio - feats.pinch_ratio) / (open_ratio - cfg.pinch_press), 0.0), 1.0)
+        return min(max((open_ratio - ratio) / (open_ratio - cfg.pinch_press), 0.0), 1.0)
 
     def _point(self, pts, feats: g.HandFeatures, t: float, dt: float):
         cfg = self.cfg
@@ -188,10 +202,29 @@ class Controller:
         else:
             signal, press, release = feats.thumb_ratio, cfg.thumb_press, cfg.thumb_release
             freeze_speed, anchor = cfg.thumb_freeze_speed, g.INDEX_TIP
-        speed = abs(signal - self.last_click_signal) / dt if self.last_click_signal is not None else 0.0
-        self.last_click_signal = signal
+        right = feats.middle_pinch_ratio
+        if self.last_click_signal is not None:
+            last_signal, last_right = self.last_click_signal
+            speed = max(abs(signal - last_signal) / dt, abs(right - last_right) / dt * freeze_speed / cfg.pinch_freeze_speed)
+        else:
+            speed = 0.0
+        self.last_click_signal = (signal, right)
 
-        if not self.left_down and signal > press:
+        # Right click: thumb to middle fingertip. Whichever fingertip the thumb is closer to wins.
+        if not self.right_down and not self.left_down and right < cfg.pinch_press and right < feats.pinch_ratio:
+            self.right_down = True
+            if self.mouse:
+                self.mouse.press(e.BTN_RIGHT)
+            self.freeze_until = t + cfg.click_freeze_s
+        elif self.right_down and right > cfg.pinch_release:
+            self.right_down = False
+            if self.mouse:
+                self.mouse.release(e.BTN_RIGHT)
+            self.freeze_until = t + cfg.click_freeze_s
+
+        if not self.left_down and not self.right_down and signal > press and (
+            cfg.click == "thumb" or feats.pinch_ratio <= right
+        ):
             self.left_down = True
             if self.mouse:
                 self.mouse.press(e.BTN_LEFT)

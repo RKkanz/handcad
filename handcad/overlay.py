@@ -62,11 +62,11 @@ class Overlay(QWidget):
                 p.drawEllipse(pt, r, r)
 
             if s.pinch is not None:
-                # Thumb-index line that brightens as the pinch closes.
+                # Thumb-to-fingertip line that brightens as the pinch closes.
                 c = QColor(255, 255, 255) if s.pressed else QColor(color)
                 c.setAlpha(int(60 + 195 * s.pinch))
                 p.setPen(QPen(c, 2 + 4 * s.pinch, Qt.DashLine if not s.pressed else Qt.SolidLine, Qt.RoundCap))
-                p.drawLine(pts[4], pts[8])
+                p.drawLine(pts[4], pts[s.pinch_finger])
 
             if s.pause_progress > 0:
                 p.setPen(QPen(QColor(255, 255, 255, 220), 5, Qt.SolidLine, Qt.RoundCap))
